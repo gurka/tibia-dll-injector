@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="tibia-dll-injector" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="debug">
+				<Option output="../tibia-dll-injector/bin/debug/tibia-dll-injector" prefix_auto="1" extension_auto="1" />
+				<Option object_output="../tibia-dll-injector/obj/debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add directory="include" />
+					<Add directory="../tibia-dll-injector/" />
+				</Compiler>
+			</Target>
+			<Target title="release">
+				<Option output="../tibia-dll-injector/bin/release/tibia-dll-injector" prefix_auto="1" extension_auto="1" />
+				<Option object_output="../tibia-dll-injector/obj/release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add directory="include" />
+					<Add directory="../tibia-dll-injector" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+			<Target title="test">
+				<Option output="../tibia-dll-injector/bin/debug/tibia-dll-injector" prefix_auto="1" extension_auto="1" />
+				<Option object_output="../tibia-dll-injector/obj/debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add directory="include" />
+					<Add directory="../tibia-dll-injector/" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-std=c++11" />
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+		</Compiler>
+		<Linker>
+			<Add library="Kernel32" />
+			<Add library="psapi" />
+			<Add library="ws2_32" />
+			<Add library="gmp" />
+		</Linker>
+		<Unit filename="../tibia-dll-injector/src/bits.h" />
+		<Unit filename="../tibia-dll-injector/src/packet.cc" />
+		<Unit filename="../tibia-dll-injector/src/packet.h" />
+		<Unit filename="../tibia-dll-injector/src/protocol.h" />
+		<Unit filename="../tibia-dll-injector/src/rsa.cc" />
+		<Unit filename="../tibia-dll-injector/src/rsa.h" />
+		<Unit filename="../tibia-dll-injector/src/server.cc" />
+		<Unit filename="../tibia-dll-injector/src/server.h" />
+		<Unit filename="../tibia-dll-injector/src/tibia_dll_injector.cc">
+			<Option target="debug" />
+			<Option target="release" />
+		</Unit>
+		<Unit filename="../tibia-dll-injector/src/xtea.cpp" />
+		<Unit filename="../tibia-dll-injector/src/xtea.h" />
+		<Unit filename="../tibia-dll-injector/test/packet_test.cc">
+			<Option target="test" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
