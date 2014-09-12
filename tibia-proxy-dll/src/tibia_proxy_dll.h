@@ -1,25 +1,27 @@
 #ifndef TIBIA_PROXY_DLL_H_
 #define TIBIA_PROXY_DLL_H_
 
+#include <cstdint>
+
 #define DLL_EXPORT __declspec(dllexport)
 
-typedef int (WINAPI *PRECV)(SOCKET s, char* buf, int len, int flags);
-typedef int (WINAPI *PSEND)(SOCKET s, char* buf, int len, int flags);
-typedef int (WINAPI *PSOCKET)(int af, int type, int protocol);
-typedef int (WINAPI *PHTONS)(u_short hostshort);
-typedef int (WINAPI *PINET_ADDR)(const char* cp);
-typedef int (WINAPI *PCONNECT)(SOCKET s, const struct sockaddr* name, int namelen);
-typedef int (WINAPI *PCLOSESOCKET)(SOCKET s);
+typedef int  (WINAPI *RECV_PTR)(SOCKET s, char* buf, int len, int flags);
+typedef int  (WINAPI *SEND_PTR)(SOCKET s, char* buf, int len, int flags);
+typedef int  (WINAPI *SOCKET_PTR)(int af, int type, int protocol);
+typedef int  (WINAPI *HTONS_PTR)(u_short hostshort);
+typedef int  (WINAPI *INET_ADDR_PTR)(const char* cp);
+typedef int  (WINAPI *CONNECT_PTR)(SOCKET s, const struct sockaddr* name, int namelen);
+typedef int  (WINAPI *CLOSESOCKET_PTR)(SOCKET s);
+typedef int  (WINAPI *WSAGETLASTERROR_PTR)(void);
+typedef void (WINAPI *WSASETLASTERROR_PTR)(int);
 
-typedef int (WINAPI *PWSAGETLASTERROR)(void);
-typedef void (WINAPI *PWSASETLASTERROR)(int);
+int WINAPI our_recv(SOCKET s, char* buf, int len, int flags);
+int WINAPI our_send(SOCKET s, char* buf, int len, int flags);
+int WINAPI our_connect(SOCKET s, const struct sockaddr* name, int namelen);
+int WINAPI our_closesocket(SOCKET s);
 
-int WINAPI myRecv(SOCKET s, char* buf, int len, int flags);
-int WINAPI mySend(SOCKET s, char* buf, int len, int flags);
-int WINAPI myConnect(SOCKET s, const struct sockaddr* name, int namelen);
-int WINAPI myCloseSocket(SOCKET s);
+void sendDllBuffer(int length);
 
-void sendDllPacket(char* buf, int len);
 void dllThreadFunc(HMODULE dllModule);
 
 extern "C" DLL_EXPORT BOOL APIENTRY DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);

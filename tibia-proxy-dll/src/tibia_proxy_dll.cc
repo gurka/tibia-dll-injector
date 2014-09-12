@@ -1,4 +1,5 @@
-#include <sstream>
+#include <algorithm>
+#include <array>
 #include <windows.h>
 #include "tibia_proxy_dll.h"
 
@@ -6,22 +7,21 @@
 static HANDLE dllThread;
 
 // Function pointers to WS2_32 functions
-static PRECV        ws2_32_recv_ptr        = (PSEND)        GetProcAddress(GetModuleHandleA("WS2_32.dll"), "recv");
-static PSEND        ws2_32_send_ptr        = (PRECV)        GetProcAddress(GetModuleHandleA("WS2_32.dll"), "send");
-static PSOCKET      ws2_32_socket_ptr      = (PSOCKET)      GetProcAddress(GetModuleHandleA("WS2_32.dll"), "socket");
-static PHTONS       ws2_32_htons_ptr       = (PHTONS)       GetProcAddress(GetModuleHandleA("WS2_32.dll"), "htons");
-static PINET_ADDR   ws2_32_inet_addr_ptr   = (PINET_ADDR)   GetProcAddress(GetModuleHandleA("WS2_32.dll"), "inet_addr");
-static PCONNECT     ws2_32_connect_ptr     = (PCONNECT)     GetProcAddress(GetModuleHandleA("WS2_32.dll"), "connect");
-static PCLOSESOCKET ws2_32_closesocket_ptr = (PCLOSESOCKET) GetProcAddress(GetModuleHandleA("WS2_32.dll"), "closesocket");
-
-static PWSAGETLASTERROR WSAGetLastError_ptr = (PWSAGETLASTERROR) GetProcAddress(GetModuleHandleA("WS2_32.dll"), "WSAGetLastError");
-static PWSASETLASTERROR WSASetLastError_ptr = (PWSASETLASTERROR) GetProcAddress(GetModuleHandleA("WS2_32.dll"), "WSASetLastError");
+static RECV_PTR            ws2_32_recv            = (RECV_PTR)            GetProcAddress(GetModuleHandleA("WS2_32.dll"), "recv");
+static SEND_PTR            ws2_32_send            = (SEND_PTR)            GetProcAddress(GetModuleHandleA("WS2_32.dll"), "send");
+static SOCKET_PTR          ws2_32_socket          = (SOCKET_PTR)          GetProcAddress(GetModuleHandleA("WS2_32.dll"), "socket");
+static HTONS_PTR           ws2_32_htons           = (HTONS_PTR)           GetProcAddress(GetModuleHandleA("WS2_32.dll"), "htons");
+static INET_ADDR_PTR       ws2_32_inet_addr       = (INET_ADDR_PTR)       GetProcAddress(GetModuleHandleA("WS2_32.dll"), "inet_addr");
+static CONNECT_PTR         ws2_32_connect         = (CONNECT_PTR)         GetProcAddress(GetModuleHandleA("WS2_32.dll"), "connect");
+static CLOSESOCKET_PTR     ws2_32_closesocket     = (CLOSESOCKET_PTR)     GetProcAddress(GetModuleHandleA("WS2_32.dll"), "closesocket");
+static WSAGETLASTERROR_PTR ws2_32_WSAGetLastError = (WSAGETLASTERROR_PTR) GetProcAddress(GetModuleHandleA("WS2_32.dll"), "WSAGetLastError");
+static WSASETLASTERROR_PTR ws2_32_WSASetLastError = (WSASETLASTERROR_PTR) GetProcAddress(GetModuleHandleA("WS2_32.dll"), "WSASetLastError");
 
 // Function pointers to our WS2_32 functions
-static DWORD_PTR myRecvPtr        = (DWORD_PTR)&myRecv;
-static DWORD_PTR mySendPtr        = (DWORD_PTR)&mySend;
-static DWORD_PTR myConnectPtr     = (DWORD_PTR)&myConnect;
-static DWORD_PTR myCloseSocketPtr = (DWORD_PTR)&myCloseSocket;
+static DWORD_PTR our_recv_ptr        = (DWORD_PTR) &our_recv;
+static DWORD_PTR our_send_ptr        = (DWORD_PTR) &our_send;
+static DWORD_PTR our_connect_ptr     = (DWORD_PTR) &our_connect;
+static DWORD_PTR our_closesocket_ptr = (DWORD_PTR) &our_closesocket;
 
 // The memory addresses which we want to replace (Tibia 10.54)
 static DWORD_PTR tibiaSendFuncPtr        = 0x3419AC;
@@ -36,96 +36,98 @@ static bool firstPacket = false;
 
 // Our socket and buffer
 static SOCKET dllSocket;
-static char dllBuffer[1024 * 10];
+static std::array<uint8_t, 1024 * 16> dllBuffer;
 
-int WINAPI myRecv(SOCKET s, char* buf, int len, int flags) {
-  int bytesCount = ws2_32_recv_ptr(s, buf, len, flags);
-  int wsa_error = WSAGetLastError_ptr();
+int WINAPI our_recv(SOCKET s, char* buf, int len, int flags) {
+  int bytesCount = ws2_32_recv(s, buf, len, flags);
+  int wsaError = ws2_32_WSAGetLastError();
 
   if (bytesCount == 0) {
     // Server -> Client closed
     dllBuffer[0] = 0x00;
-    sendDllPacket(&dllBuffer[0], 1);
+    sendDllBuffer(1);
   } else if (bytesCount == SOCKET_ERROR) {
     // Server -> Client error
     dllBuffer[0] = 0x01;
-    sendDllPacket(&dllBuffer[0], 1);
+    sendDllBuffer(1);
   } else {
     // Server -> Client data
     dllBuffer[0] = 0x02;
-    memcpy(&dllBuffer[1], buf, bytesCount);
-    sendDllPacket(&dllBuffer[0], 1 + bytesCount);
+    std::copy(&buf[0], &buf[bytesCount], &dllBuffer[1]);
+    sendDllBuffer(1 + bytesCount);
   }
 
-  WSASetLastError_ptr(wsa_error);
+  ws2_32_WSASetLastError(wsaError);
   return bytesCount;
 }
 
-int WINAPI mySend(SOCKET s, char* buf, int len, int flags) {
-  int bytesCount = ws2_32_send_ptr(s, buf, len, flags);
-  int wsa_error = WSAGetLastError_ptr();
+int WINAPI our_send(SOCKET s, char* buf, int len, int flags) {
+  int bytesCount = ws2_32_send(s, buf, len, flags);
+  int wsaError = ws2_32_WSAGetLastError();
 
   if (firstPacket) {
     DWORD_PTR tibiaHandle = (DWORD_PTR)GetModuleHandle(NULL);
-    DWORD_PTR realXteaKeyAddress = tibiaHandle + tibiaXteaKeyAddress;
+    uint8_t* xteaKeys = (uint8_t*)(tibiaHandle + tibiaXteaKeyAddress);
 
     // Send XTEA Key
     dllBuffer[0] = 0x07;
-    memcpy(&dllBuffer[1], (void*)realXteaKeyAddress, 16);
-    sendDllPacket(&dllBuffer[0], 17);
+    std::copy(&xteaKeys[0], &xteaKeys[16], &dllBuffer[1]);
+    sendDllBuffer(17);
     firstPacket = false;
   }
 
   if (bytesCount == SOCKET_ERROR) {
     // Client -> Server error
     dllBuffer[0] = 0x03;
-    sendDllPacket(&dllBuffer[0], 1);
+    sendDllBuffer(1);
   } else {
     // Client -> Server data
     dllBuffer[0] = 0x04;
-    memcpy(&dllBuffer[1], buf, bytesCount);
-    sendDllPacket(&dllBuffer[0], 1 + bytesCount);
+    std::copy(&buf[0], &buf[bytesCount], &dllBuffer[1]);
+    //memcpy(&dllBuffer[1], buf, bytesCount);
+    sendDllBuffer(1 + bytesCount);
   }
 
-  WSASetLastError_ptr(wsa_error);
+  ws2_32_WSASetLastError(wsaError);
   return bytesCount;
 }
 
-int WINAPI myConnect(SOCKET s, const struct sockaddr* name, int namelen) {
-  int ret = ws2_32_connect_ptr(s, name, namelen);
-  int wsa_error = WSAGetLastError_ptr();
+int WINAPI our_connect(SOCKET s, const struct sockaddr* name, int namelen) {
+  int ret = ws2_32_connect(s, name, namelen);
+  int wsaError = ws2_32_WSAGetLastError();
 
   dllBuffer[0] = 0x05;  // Client -> Server connect
   dllBuffer[1] = (ret == SOCKET_ERROR) ? 0x00 : 0x01;
-  sendDllPacket(&dllBuffer[0], 2);
+  sendDllBuffer(2);
 
   // Send XTEA key on next send
   firstPacket = true;
 
-  WSASetLastError_ptr(wsa_error);
+  ws2_32_WSASetLastError(wsaError);
   return ret;
 }
 
-int WINAPI myCloseSocket(SOCKET s) {
-  int ret = ws2_32_closesocket_ptr(s);
-  int wsa_error = WSAGetLastError_ptr();
+int WINAPI our_closesocket(SOCKET s) {
+  int ret = ws2_32_closesocket(s);
+  int wsaError = ws2_32_WSAGetLastError();
 
   dllBuffer[0] = 0x06;  // Client -> Server close socket
   dllBuffer[1] = (ret == SOCKET_ERROR) ? 0x00 : 0x01;
-  sendDllPacket(&dllBuffer[0], 2);
+  sendDllBuffer(2);
 
-  WSASetLastError_ptr(wsa_error);
+  ws2_32_WSASetLastError(wsaError);
   return ret;
 }
 
-void sendDllPacket(char* buf, int len) {
+void sendDllBuffer(int length) {
   // Send length
-  char packet_length[2];
-  packet_length[0] = len & 0xFF;
-  packet_length[1] = (len >> 8) & 0xFF;
+  std::array<uint8_t, 2> packetLength = {
+    static_cast<uint8_t>(length & 0xFF),
+    static_cast<uint8_t>((length >> 8) & 0xFF),
+  };
   int left = 2;
   while (left > 0) {
-    int temp = ws2_32_send_ptr(dllSocket, packet_length, left, 0);
+    int temp = ws2_32_send(dllSocket, (char*)(&packetLength[0]), left, 0);
     if (temp == SOCKET_ERROR) {
       return;  // TODO: Uninject self
     } else {
@@ -134,9 +136,9 @@ void sendDllPacket(char* buf, int len) {
   }
 
   // Send packet
-  left = len;
+  left = length;
   while (left > 0) {
-    int temp = ws2_32_send_ptr(dllSocket, &buf[len - left], left, 0);
+    int temp = ws2_32_send(dllSocket, (char*)(&dllBuffer[length - left]), left, 0);
     if (temp == SOCKET_ERROR) {
       return;  // TODO: Uninject self
     } else {
@@ -147,7 +149,7 @@ void sendDllPacket(char* buf, int len) {
 
 void dllThreadFunc(HMODULE dllModule) {
   // Create socket
-  dllSocket = ws2_32_socket_ptr(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  dllSocket = ws2_32_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (dllSocket == INVALID_SOCKET) {
     MessageBox(NULL, "Could not create socket", "TibiaProxyDLL Error", MB_ICONERROR | MB_OK);
     return;
@@ -156,11 +158,11 @@ void dllThreadFunc(HMODULE dllModule) {
   // Connect to server
   struct sockaddr_in address;
   address.sin_family = AF_INET;
-  address.sin_port = ws2_32_htons_ptr(8181);
-  address.sin_addr.S_un.S_addr = ws2_32_inet_addr_ptr("127.0.0.1");
-  if (ws2_32_connect_ptr(dllSocket, (sockaddr*)(&address), sizeof(address)) == SOCKET_ERROR) {
+  address.sin_port = ws2_32_htons(8181);
+  address.sin_addr.S_un.S_addr = ws2_32_inet_addr("127.0.0.1");
+  if (ws2_32_connect(dllSocket, (sockaddr*)(&address), sizeof(address)) == SOCKET_ERROR) {
     MessageBox(NULL, "Could not connect to server", "TibiaProxyDLL Error", MB_ICONERROR | MB_OK);
-    ws2_32_closesocket_ptr(dllSocket);
+    ws2_32_closesocket(dllSocket);
     return;
   }
 
@@ -169,26 +171,26 @@ void dllThreadFunc(HMODULE dllModule) {
 
   // Get tibia handle and calculate addresses to send and recv funcs
   DWORD_PTR tibiaHandle = (DWORD_PTR)GetModuleHandle(NULL);
-  DWORD_PTR realTibiaSendCallPtr = tibiaHandle + tibiaSendFuncPtr;
-  DWORD_PTR realTibiaRecvCallPtr = tibiaHandle + tibiaRecvFuncPtr;
-  DWORD_PTR realTibiaConnectCallPtr = tibiaHandle + tibiaConnectFuncPtr;
+  DWORD_PTR realTibiaSendCallPtr        = tibiaHandle + tibiaSendFuncPtr;
+  DWORD_PTR realTibiaRecvCallPtr        = tibiaHandle + tibiaRecvFuncPtr;
+  DWORD_PTR realTibiaConnectCallPtr     = tibiaHandle + tibiaConnectFuncPtr;
   DWORD_PTR realTibiaCloseSocketCallPtr = tibiaHandle + tibiaCloseSocketFuncPtr;
 
   // Replace Tibias func pointers with our func pointers
   VirtualProtect((PVOID)realTibiaSendCallPtr, 4, PAGE_READWRITE, &dwOldProtect);
-  memcpy((PVOID)realTibiaSendCallPtr, &mySendPtr, 4);
+  memcpy((PVOID)realTibiaSendCallPtr, &our_send_ptr, 4);
   VirtualProtect((PVOID)realTibiaSendCallPtr, 4, dwOldProtect, &dwNewProtect);
 
   VirtualProtect((PVOID)realTibiaRecvCallPtr, 4, PAGE_READWRITE, &dwOldProtect);
-  memcpy((PVOID)realTibiaRecvCallPtr, &myRecvPtr, 4);
+  memcpy((PVOID)realTibiaRecvCallPtr, &our_recv_ptr, 4);
   VirtualProtect((PVOID)realTibiaRecvCallPtr, 4, dwOldProtect, &dwNewProtect);
 
   VirtualProtect((PVOID)realTibiaConnectCallPtr, 4, PAGE_READWRITE, &dwOldProtect);
-  memcpy((PVOID)realTibiaConnectCallPtr, &myConnectPtr, 4);
+  memcpy((PVOID)realTibiaConnectCallPtr, &our_connect_ptr, 4);
   VirtualProtect((PVOID)realTibiaConnectCallPtr, 4, dwOldProtect, &dwNewProtect);
 
   VirtualProtect((PVOID)realTibiaCloseSocketCallPtr, 4, PAGE_READWRITE, &dwOldProtect);
-  memcpy((PVOID)realTibiaCloseSocketCallPtr, &myCloseSocketPtr, 4);
+  memcpy((PVOID)realTibiaCloseSocketCallPtr, &our_closesocket_ptr, 4);
   VirtualProtect((PVOID)realTibiaCloseSocketCallPtr, 4, dwOldProtect, &dwNewProtect);
 }
 
