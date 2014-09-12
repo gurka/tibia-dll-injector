@@ -40,6 +40,9 @@
 				</Linker>
 			</Target>
 		</Build>
+		<Compiler>
+			<Add option="-std=c++11" />
+		</Compiler>
 		<Unit filename="../tibia-proxy-dll/src/tibia_proxy_dll.cc" />
 		<Unit filename="../tibia-proxy-dll/src/tibia_proxy_dll.h" />
 		<Extensions>

@@ -21,7 +21,6 @@ int WINAPI our_connect(SOCKET s, const struct sockaddr* name, int namelen);
 int WINAPI our_closesocket(SOCKET s);
 
 void sendDllBuffer(int length);
-
 void dllThreadFunc(HMODULE dllModule);
 
 extern "C" DLL_EXPORT BOOL APIENTRY DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
