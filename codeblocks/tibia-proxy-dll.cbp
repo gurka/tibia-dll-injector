@@ -42,7 +42,11 @@
 		</Build>
 		<Compiler>
 			<Add option="-std=c++11" />
+			<Add directory="../common/src" />
 		</Compiler>
+		<Unit filename="../common/src/bits.h" />
+		<Unit filename="../common/src/packet.cc" />
+		<Unit filename="../common/src/packet.h" />
 		<Unit filename="../tibia-proxy-dll/src/tibia_proxy_dll.cc" />
 		<Unit filename="../tibia-proxy-dll/src/tibia_proxy_dll.h" />
 		<Extensions>

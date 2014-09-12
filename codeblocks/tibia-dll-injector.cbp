@@ -47,6 +47,7 @@
 			<Add option="-std=c++11" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
+			<Add directory="../common/src" />
 		</Compiler>
 		<Linker>
 			<Add library="Kernel32" />
@@ -54,9 +55,9 @@
 			<Add library="ws2_32" />
 			<Add library="gmp" />
 		</Linker>
-		<Unit filename="../tibia-dll-injector/src/bits.h" />
-		<Unit filename="../tibia-dll-injector/src/packet.cc" />
-		<Unit filename="../tibia-dll-injector/src/packet.h" />
+		<Unit filename="../common/src/bits.h" />
+		<Unit filename="../common/src/packet.cc" />
+		<Unit filename="../common/src/packet.h" />
 		<Unit filename="../tibia-dll-injector/src/protocol.h" />
 		<Unit filename="../tibia-dll-injector/src/rsa.cc" />
 		<Unit filename="../tibia-dll-injector/src/rsa.h" />
