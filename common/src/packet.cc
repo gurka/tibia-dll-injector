@@ -2,43 +2,58 @@
 #include "packet.h"
 #include "bits.h"
 
-Packet::Packet(const uint8_t* buffer, uint16_t length)
-  : length_(length), pos_(0) {
-  std::copy(&buffer[0], &buffer[length], &buffer_[0]);
+void Packet::addU8(uint8_t v) {
+  Bits::addU8(buffer_, writePos_, v);
+  writePos_ += 1;
 }
 
-Packet::Packet(const std::vector<uint8_t>& buffer)
-  : length_(buffer.size()), pos_(0) {
-  std::copy(buffer.cbegin(), buffer.cend(), &buffer_[0]);
+void Packet::addU16(uint16_t v) {
+  Bits::addU16(buffer_, writePos_, v);
+  writePos_ += 2;
+}
+
+void Packet::addU32(uint32_t v) {
+  Bits::addU32(buffer_, writePos_, v);
+  writePos_ += 4;
+}
+
+void Packet::addString(const std::string& str) {
+  addU16(str.size());
+  std::copy(str.cbegin(),
+            str.cend(),
+            buffer_.begin() + writePos_);
+  writePos_ += str.size();
+}
+
+void Packet::fillBytes(uint8_t v, std::size_t n) {
+  std::fill(buffer_.begin() + writePos_,
+            buffer_.begin() + writePos_ + n,
+            v);
+  writePos_ += n;
 }
 
 uint8_t Packet::getU8() {
-  uint8_t v = Bits::getU8(&buffer_[0], pos_);
-  pos_ += 1;
+  uint8_t v = Bits::getU8(buffer_, readPos_);
+  readPos_ += 1;
   return v;
 }
 
 uint16_t Packet::getU16() {
-  uint16_t v = Bits::getU16(&buffer_[0], pos_);
-  pos_ += 2;
+  uint16_t v = Bits::getU16(buffer_, readPos_);
+  readPos_ += 2;
   return v;
 }
 
 uint32_t Packet::getU32() {
-  uint32_t v = Bits::getU32(&buffer_[0], pos_);
-  pos_ += 4;
+  uint32_t v = Bits::getU32(buffer_, readPos_);
+  readPos_ += 4;
   return v;
 }
 
 std::string Packet::getString() {
-  uint16_t strlength = getU16();
-  char* str = (char*)(&buffer_[pos_]);
-  pos_ += strlength;
-  return std::string(str, strlength);
-}
-
-std::vector<uint8_t> Packet::getBytes(uint8_t n) {
-  std::vector<uint8_t> bytes(&buffer_[pos_], &buffer_[pos_ + n]);
-  pos_ += n;
-  return bytes;
+  uint16_t strlen = getU16();
+  std::string str(buffer_.cbegin() + readPos_,
+                  buffer_.cbegin() + readPos_ + strlen);
+  readPos_ += strlen;
+  return str;
 }

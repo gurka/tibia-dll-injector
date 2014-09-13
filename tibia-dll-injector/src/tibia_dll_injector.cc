@@ -153,19 +153,19 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Starting recv loop" << std::endl;
 
-  uint8_t dllBuffer[8192];
+  std::array<uint8_t, 1024 * 16> dllBuffer;
 
-  uint8_t serverToClientBuffer[8192 * 4];
+  std::array<uint8_t, 1024 * 16> serverToClientBuffer;
   uint16_t serverToClientPos = 0;
 
-  uint8_t clientToServerBuffer[8192 * 4];
+  std::array<uint8_t, 1024 * 16> clientToServerBuffer;
   uint16_t clientToServerPos = 0;
 
   uint32_t xteaKey[4];
 
   while (true) {
     // Get DLL packet length
-    if (!recvAll(clientSocket, (char*)dllBuffer, 2)) {
+    if (!recvAll(clientSocket, (char*)dllBuffer.begin(), 2)) {
       std::cerr << "Connection to DLL closed" << std::endl;
       break;
     }
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
     uint16_t dll_packet_length = Bits::getU16(dllBuffer, 0);
 
     // Get DLL packet
-    if (!recvAll(clientSocket, (char*)dllBuffer, dll_packet_length)) {
+    if (!recvAll(clientSocket, (char*)dllBuffer.begin(), dll_packet_length)) {
       std::cerr << "Connection to DLL closed" << std::endl;
       break;
     }
@@ -233,7 +233,8 @@ int main(int argc, char* argv[]) {
           if (decrypted_length > packet_length) {
             std::cerr << "Server -> Client Decrypted length (" << decrypted_length << ") > encrypted length (" << (packet_length - 4) << ")" << std::endl;
           } else {
-            Packet packet(&serverToClientBuffer[8], decrypted_length);
+            Packet packet(serverToClientBuffer.cbegin() + 8,
+                          serverToClientBuffer.cbegin() + 8 + decrypted_length);
             uint8_t opcode = packet.getU8();
             std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::gameServerOpcodes.find(opcode);
             if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
@@ -254,9 +255,9 @@ int main(int argc, char* argv[]) {
         // Move rest of buffer (if any)
         uint16_t bytesLeft = serverToClientPos - (2 + packet_length);
         if (bytesLeft > 0) {
-          std::copy(&serverToClientBuffer[2 + packet_length],
-                    &serverToClientBuffer[2 + packet_length + bytesLeft],
-                    serverToClientBuffer);
+          std::copy(serverToClientBuffer.cbegin() + 2 + packet_length,
+                    serverToClientBuffer.cbegin() + 2 + packet_length + bytesLeft,
+                    serverToClientBuffer.begin());
         }
         serverToClientPos = bytesLeft;
       }
@@ -282,7 +283,8 @@ int main(int argc, char* argv[]) {
           if (decrypted_length > packet_length) {
             std::cerr << "Client -> Server Decrypted length (" << decrypted_length << ") > encrypted length (" << (packet_length - 4) << ")" << std::endl;
           } else {
-            Packet packet(&clientToServerBuffer[8], decrypted_length);
+            Packet packet(clientToServerBuffer.cbegin() + 8,
+                          clientToServerBuffer.cbegin() + 8 + decrypted_length);
             uint8_t opcode = packet.getU8();
             std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::clientOpcodes.find(opcode);
             if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
@@ -303,9 +305,9 @@ int main(int argc, char* argv[]) {
         // Move rest of buffer (if any)
         uint16_t bytesLeft = clientToServerPos - (2 + packet_length);
         if (bytesLeft > 0) {
-          std::copy(&clientToServerBuffer[2 + packet_length],
-                    &clientToServerBuffer[2 + packet_length + bytesLeft],
-                    clientToServerBuffer);
+          std::copy(clientToServerBuffer.cbegin() + 2 + packet_length,
+                    clientToServerBuffer.cbegin() + 2 + packet_length + bytesLeft,
+                    clientToServerBuffer.begin());
         }
         clientToServerPos = bytesLeft;
       }
