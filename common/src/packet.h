@@ -16,6 +16,7 @@ class Packet {
     std::copy(first, last, buffer_.begin());
   }
 
+  void reset() { writePos_ = 0; readPos_ = 0; }
   std::size_t length() const { return writePos_; }
   const uint8_t* getBuffer() const { return buffer_.data(); }
 

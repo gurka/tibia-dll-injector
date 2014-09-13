@@ -2,7 +2,7 @@
 #include <iostream>
 #include "../src/packet.h"
 
-bool test_readPacket() {
+void test_readPacket() {
   std::vector<uint8_t> buffer = {
     0x64,                   // 0d100
     0x03, 0x00,             // string length = 3
@@ -39,11 +39,9 @@ bool test_readPacket() {
   assert(left == 0);
 
   assert(buffer.size() == packet.length());
-
-  return true;
 }
 
-bool test_writePacket() {
+void test_writePacket() {
   Packet packet;
   std::size_t length = 0;
   assert(packet.length() == length);
@@ -82,11 +80,9 @@ bool test_writePacket() {
   for (std::size_t i = 0; i < packet.length(); i++) {
     assert((uint16_t)buffer[i] == (uint16_t)packet_buffer[i]);
   }
-
-  return true;
 }
 
-bool test_writeAndReadPacket() {
+void test_writeAndReadPacket() {
   Packet packet;
   packet.addU16(5423);
   packet.addU16(1334);
@@ -105,14 +101,32 @@ bool test_writeAndReadPacket() {
   assert("END" == packet.getString());
 
   assert(0 == packet.bytesLeftReadable());
+}
 
-  return true;
+void test_resetPacket() {
+  Packet packet;
+  assert(packet.bytesLeftReadable() == 0);
+
+  packet.addU8(1);
+  packet.addU16(2);
+  packet.addU32(3);
+  packet.addString("A");
+  assert(packet.bytesLeftReadable() == 10);
+
+  packet.reset();
+  assert(packet.bytesLeftReadable() == 0);
+
+  packet.addU8(123);
+  assert(packet.bytesLeftReadable() == 1);
+  assert(packet.getU8() == 123);
+  assert(packet.bytesLeftReadable() == 0);
 }
 
 int main(int argc, char* argv[]) {
   test_readPacket();
   test_writePacket();
   test_writeAndReadPacket();
+  test_resetPacket();
 
   return 0;
 }
