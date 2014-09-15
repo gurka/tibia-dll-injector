@@ -1,4 +1,3 @@
-#include <algorithm>
 #include "packet.h"
 #include "bits.h"
 
@@ -56,4 +55,13 @@ std::string Packet::getString() {
                   buffer_.cbegin() + readPos_ + strlen);
   readPos_ += strlen;
   return str;
+}
+
+std::vector<uint8_t> Packet::getBytes(uint16_t n) {
+  std::vector<uint8_t> bytes(n);
+  std::copy(buffer_.cbegin() + readPos_,
+            buffer_.cbegin() + readPos_ + n,
+            bytes.begin());
+  readPos_ += n;
+  return bytes;
 }

@@ -56,8 +56,11 @@
 			<Add library="gmp" />
 		</Linker>
 		<Unit filename="../common/src/bits.h" />
+		<Unit filename="../common/src/dll_protocol.h" />
 		<Unit filename="../common/src/packet.cc" />
 		<Unit filename="../common/src/packet.h" />
+		<Unit filename="../tibia-dll-injector/src/packet_buffer.cc" />
+		<Unit filename="../tibia-dll-injector/src/packet_buffer.h" />
 		<Unit filename="../tibia-dll-injector/src/protocol.h" />
 		<Unit filename="../tibia-dll-injector/src/rsa.cc" />
 		<Unit filename="../tibia-dll-injector/src/rsa.h" />

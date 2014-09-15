@@ -1,7 +1,10 @@
-#include <algorithm>
+#include <cstdint>
 #include <array>
 #include <windows.h>
 #include "tibia_proxy_dll.h"
+#include "packet.h"
+#include "bits.h"
+#include "dll_protocol.h"
 
 // Handle to the thread
 static HANDLE dllThread;
@@ -24,37 +27,35 @@ static DWORD_PTR our_connect_ptr     = (DWORD_PTR) &our_connect;
 static DWORD_PTR our_closesocket_ptr = (DWORD_PTR) &our_closesocket;
 
 // The memory addresses which we want to replace (Tibia 10.54)
-static DWORD_PTR tibiaSendFuncPtr        = 0x3419AC;
-static DWORD_PTR tibiaRecvFuncPtr        = 0x341994;
-static DWORD_PTR tibiaConnectFuncPtr     = 0x341984;
-static DWORD_PTR tibiaCloseSocketFuncPtr = 0x341980;
-static DWORD_PTR tibiaXteaKeyAddress     = 0x40E734;
+static DWORD_PTR tibiaSendFuncPtr        = 0x34C9AC;
+static DWORD_PTR tibiaRecvFuncPtr        = 0x34C994;
+static DWORD_PTR tibiaConnectFuncPtr     = 0x34C984;
+static DWORD_PTR tibiaCloseSocketFuncPtr = 0x34C980;
+static DWORD_PTR tibiaXteaKeyAddress     = 0x41B8D4;
 
 // This is set to true after a call to myConnect has been made
 // It is used to send the XTEA key on the next call to mySend
 static bool firstPacket = false;
 
-// Our socket and buffer
+// Our socket and packet
 static SOCKET dllSocket;
-static std::array<uint8_t, 1024 * 16> dllBuffer;
+static Packet dllPacket;
 
 int WINAPI our_recv(SOCKET s, char* buf, int len, int flags) {
   int bytesCount = ws2_32_recv(s, buf, len, flags);
   int wsaError = ws2_32_WSAGetLastError();
 
+  dllPacket.reset();
   if (bytesCount == 0) {
-    // Server -> Client closed
-    dllBuffer[0] = 0x00;
-    sendDllBuffer(1);
+    dllPacket.addU8(DllProtocol::SERVER_CLIENT_CLOSED);
+    sendDllPacket();
   } else if (bytesCount == SOCKET_ERROR) {
-    // Server -> Client error
-    dllBuffer[0] = 0x01;
-    sendDllBuffer(1);
+    dllPacket.addU8(DllProtocol::SERVER_CLIENT_ERROR);
+    sendDllPacket();
   } else {
-    // Server -> Client data
-    dllBuffer[0] = 0x02;
-    std::copy(&buf[0], &buf[bytesCount], &dllBuffer[1]);
-    sendDllBuffer(1 + bytesCount);
+    dllPacket.addU8(DllProtocol::SERVER_CLIENT_DATA);
+    dllPacket.addBytes(&buf[0], &buf[bytesCount]);
+    sendDllPacket();
   }
 
   ws2_32_WSASetLastError(wsaError);
@@ -65,27 +66,24 @@ int WINAPI our_send(SOCKET s, char* buf, int len, int flags) {
   int bytesCount = ws2_32_send(s, buf, len, flags);
   int wsaError = ws2_32_WSAGetLastError();
 
+  dllPacket.reset();
   if (firstPacket) {
     DWORD_PTR tibiaHandle = (DWORD_PTR)GetModuleHandle(NULL);
     uint8_t* xteaKeys = (uint8_t*)(tibiaHandle + tibiaXteaKeyAddress);
 
-    // Send XTEA Key
-    dllBuffer[0] = 0x07;
-    std::copy(&xteaKeys[0], &xteaKeys[16], &dllBuffer[1]);
-    sendDllBuffer(17);
+    dllPacket.addU8(DllProtocol::XTEA_KEY);
+    dllPacket.addBytes(&xteaKeys[0], &xteaKeys[16]);
+    sendDllPacket();
     firstPacket = false;
   }
 
   if (bytesCount == SOCKET_ERROR) {
-    // Client -> Server error
-    dllBuffer[0] = 0x03;
-    sendDllBuffer(1);
+    dllPacket.addU8(DllProtocol::CLIENT_SERVER_ERROR);
+    sendDllPacket();
   } else {
-    // Client -> Server data
-    dllBuffer[0] = 0x04;
-    std::copy(&buf[0], &buf[bytesCount], &dllBuffer[1]);
-    //memcpy(&dllBuffer[1], buf, bytesCount);
-    sendDllBuffer(1 + bytesCount);
+    dllPacket.addU8(DllProtocol::CLIENT_SERVER_DATA);
+    dllPacket.addBytes(&buf[0], &buf[bytesCount]);
+    sendDllPacket();
   }
 
   ws2_32_WSASetLastError(wsaError);
@@ -96,9 +94,10 @@ int WINAPI our_connect(SOCKET s, const struct sockaddr* name, int namelen) {
   int ret = ws2_32_connect(s, name, namelen);
   int wsaError = ws2_32_WSAGetLastError();
 
-  dllBuffer[0] = 0x05;  // Client -> Server connect
-  dllBuffer[1] = (ret == SOCKET_ERROR) ? 0x00 : 0x01;
-  sendDllBuffer(2);
+  dllPacket.reset();
+  dllPacket.addU8(DllProtocol::CLIENT_SERVER_CONNECT);
+  dllPacket.addU8((ret == SOCKET_ERROR) ? 0x00 : 0x01);
+  sendDllPacket();
 
   // Send XTEA key on next send
   firstPacket = true;
@@ -111,20 +110,19 @@ int WINAPI our_closesocket(SOCKET s) {
   int ret = ws2_32_closesocket(s);
   int wsaError = ws2_32_WSAGetLastError();
 
-  dllBuffer[0] = 0x06;  // Client -> Server close socket
-  dllBuffer[1] = (ret == SOCKET_ERROR) ? 0x00 : 0x01;
-  sendDllBuffer(2);
+  dllPacket.reset();
+  dllPacket.addU8(DllProtocol::CLIENT_SERVER_CLOSE_SOCKET);
+  dllPacket.addU8((ret == SOCKET_ERROR) ? 0x00 : 0x01);
+  sendDllPacket();
 
   ws2_32_WSASetLastError(wsaError);
   return ret;
 }
 
-void sendDllBuffer(int length) {
+void sendDllPacket() {
   // Send length
-  std::array<uint8_t, 2> packetLength = {
-    static_cast<uint8_t>(length & 0xFF),
-    static_cast<uint8_t>((length >> 8) & 0xFF),
-  };
+  std::array<uint8_t, 2> packetLength;
+  Bits::addU16(packetLength, 0, dllPacket.length());
   int left = 2;
   while (left > 0) {
     int temp = ws2_32_send(dllSocket, (char*)(&packetLength[0]), left, 0);
@@ -136,9 +134,13 @@ void sendDllBuffer(int length) {
   }
 
   // Send packet
-  left = length;
+  left = dllPacket.length();
+  const uint8_t* buffer = dllPacket.getBuffer();
   while (left > 0) {
-    int temp = ws2_32_send(dllSocket, (char*)(&dllBuffer[length - left]), left, 0);
+    int temp = ws2_32_send(dllSocket,
+                           (char*)(&buffer[dllPacket.length() - left]),
+                           left,
+                           0);
     if (temp == SOCKET_ERROR) {
       return;  // TODO: Uninject self
     } else {

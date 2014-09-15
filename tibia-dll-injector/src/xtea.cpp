@@ -1,7 +1,6 @@
-#include <vector>
 #include "xtea.h"
 
-bool Xtea::decrypt(const uint32_t key[4], uint8_t* buffer, uint16_t length) {
+bool Xtea::decrypt(const std::array<uint32_t, 4>& key, uint8_t* buffer, uint16_t length) {
   if (length % 8 != 0) {
     return false;
   }

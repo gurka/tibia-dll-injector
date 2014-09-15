@@ -7,9 +7,10 @@
 
 #include "server.h"
 #include "packet.h"
-#include "xtea.h"
 #include "bits.h"
 #include "protocol.h"
+#include "dll_protocol.h"
+#include "packet_buffer.h"
 
 // Path to the DLL to inject (hint: replace this string to reflect your location of the code/dll)
 static char dllName[] = "C:\\Users\\gurka\\code\\tibia-dll-injector\\tibia-proxy-dll\\bin\\release\\tibia-proxy-dll.dll";
@@ -118,6 +119,112 @@ bool recvAll(SOCKET s, char* buf, int len) {
   return true;
 }
 
+void onServerToClientPacket(Packet& packet) {
+  uint8_t opcode = packet.getU8();
+  std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::gameServerOpcodes.find(opcode);
+  if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
+    std::cout << "Server -> Client [" << opcodeStringIt->second << "]" << std::endl;
+  } else {
+    std::cout << "Server -> Client <" << (uint16_t)opcode << ">" << std::endl;
+  }
+}
+
+void onClientToServerPacket(Packet& packet) {
+  uint8_t opcode = packet.getU8();
+  std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::clientOpcodes.find(opcode);
+  if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
+    std::cout << "Client -> Server [" << opcodeStringIt->second << "]" << std::endl;
+  } else {
+    std::cout << "Client -> Server <" << (uint16_t)opcode << ">" << std::endl;
+  }
+}
+
+bool receiveDllPacket(SOCKET clientSocket, Packet& dllPacket) {
+  // Get DLL packet length
+  std::array<uint8_t, 2> dllPacketLength;
+  if (!recvAll(clientSocket, (char*)dllPacketLength.data(), 2)) {
+    return false;
+  }
+  uint16_t dll_packet_length = Bits::getU16(dllPacketLength, 0);
+
+  // Get DLL packet
+  if (!recvAll(clientSocket, (char*)dllPacket.getBuffer(), dll_packet_length)) {
+    return false;
+  }
+  dllPacket.reset(dll_packet_length);
+
+  return true;
+}
+
+void receiveLoop(SOCKET clientSocket) {
+  Packet dllPacket;
+  PacketBuffer serverToClientPB(onServerToClientPacket);
+  PacketBuffer clientToServerPB(onClientToServerPacket);
+
+  while (true) {
+    if (!receiveDllPacket(clientSocket, dllPacket)) {
+      std::cerr << "Connection to DLL closed" << std::endl;
+      break;
+    }
+
+    uint8_t packet_type = dllPacket.getU8();
+    switch (packet_type) {
+      case DllProtocol::SERVER_CLIENT_CLOSED: {
+        std::cout << "Server -> Client closed" << std::endl;
+        break;
+      }
+      case DllProtocol::SERVER_CLIENT_ERROR: {
+        std::cout << "Server -> Client error" << std::endl;
+        break;
+       }
+      case DllProtocol::SERVER_CLIENT_DATA: {
+          std::cout << "Server -> Client data" << std::endl;
+          std::vector<uint8_t> data = dllPacket.getAllBytes();
+          serverToClientPB.addToBuffer(data.cbegin(), data.cend());
+          break;
+      }
+      case DllProtocol::CLIENT_SERVER_ERROR: {
+        std::cout << "Client -> Server error" << std::endl;
+        break;
+      }
+      case DllProtocol::CLIENT_SERVER_DATA: {
+          std::cout << "Client -> Server data" << std::endl;
+          std::vector<uint8_t> data = dllPacket.getAllBytes();
+          clientToServerPB.addToBuffer(data.cbegin(), data.cend());
+          break;
+      }
+      case DllProtocol::CLIENT_SERVER_CONNECT: {
+        std::cout << "Client -> Server connect"
+                  << "(" << (dllPacket.getU8() == 0x00 ? "NOK" : "OK") << ")"
+                  << std::endl;
+        serverToClientPB.resetPosition();
+        clientToServerPB.resetPosition();
+        break;
+      }
+      case DllProtocol::CLIENT_SERVER_CLOSE_SOCKET: {
+        std::cout << "Client -> Server close socket"
+                  << "(" << (dllPacket.getU8() == 0x00 ? "NOK" : "OK") << ")"
+                  << std::endl;
+        break;
+      }
+      case DllProtocol::XTEA_KEY: {
+        std::cout << "XTEA Key" << std::endl;
+        std::array<uint32_t, 4> xteaKey;
+        for (int i = 0; i < 4; i++) {
+          xteaKey[i] = dllPacket.getU32();
+        }
+        serverToClientPB.setXteaKey(xteaKey);
+        clientToServerPB.setXteaKey(xteaKey);
+        break;
+      }
+      default: {
+        std::cerr << "Unknown DLL packet type: " << (uint16_t)packet_type << std::endl;
+        break;
+      }
+    }
+  }
+}
+
 int main(int argc, char* argv[]) {
   std::cout << "Initalizing WSA" << std::endl;
   if (!WSAInit()) {
@@ -152,179 +259,7 @@ int main(int argc, char* argv[]) {
   }
 
   std::cout << "Starting recv loop" << std::endl;
-
-  std::array<uint8_t, 1024 * 16> dllBuffer;
-
-  std::array<uint8_t, 1024 * 16> serverToClientBuffer;
-  uint16_t serverToClientPos = 0;
-
-  std::array<uint8_t, 1024 * 16> clientToServerBuffer;
-  uint16_t clientToServerPos = 0;
-
-  uint32_t xteaKey[4];
-
-  while (true) {
-    // Get DLL packet length
-    if (!recvAll(clientSocket, (char*)dllBuffer.begin(), 2)) {
-      std::cerr << "Connection to DLL closed" << std::endl;
-      break;
-    }
-
-    uint16_t dll_packet_length = Bits::getU16(dllBuffer, 0);
-
-    // Get DLL packet
-    if (!recvAll(clientSocket, (char*)dllBuffer.begin(), dll_packet_length)) {
-      std::cerr << "Connection to DLL closed" << std::endl;
-      break;
-    }
-
-    uint8_t packet_type = dllBuffer[0];
-    switch (packet_type) {
-    case 0x00:
-      std::cout << "Server -> Client closed" << std::endl;
-      break;
-    case 0x01:
-      std::cout << "Server -> Client error" << std::endl;
-      break;
-    case 0x02:
-      //std::cout << "Server -> Client data" << std::endl;
-      break;
-    case 0x03:
-      std::cout << "Client -> Server error" << std::endl;
-      break;
-    case 0x04:
-      //std::cout << "Client -> Server data" << std::endl;
-      break;
-    case 0x05:
-      std::cout << "Client -> Server connect ("
-                << (dllBuffer[1] == 0x00 ? "NOK" : "OK") << ")" << std::endl;
-      break;
-    case 0x06:
-      std::cout << "Client -> Server close socket ("
-                << (dllBuffer[1] == 0x00 ? "NOK" : "OK") << ")" << std::endl;
-      break;
-    case 0x07:
-      std::cout << "XTEA Key" << std::endl;
-      break;
-    default:
-      std::cerr << "Unknown DLL packet type: " << (uint16_t)packet_type << std::endl;
-      break;
-    }
-
-    if (packet_type == 0x02) {
-      // Server -> Client data
-      std::copy(&dllBuffer[1],
-                &dllBuffer[dll_packet_length],
-                &serverToClientBuffer[serverToClientPos]);
-      serverToClientPos += (dll_packet_length - 1);
-
-      // Check if we have complete packets
-      while (serverToClientPos >= 2) {
-        uint16_t packet_length = Bits::getU16(serverToClientBuffer, 0);
-        if (2 + packet_length > serverToClientPos) {
-          break;  // No more complete packets
-        }
-
-        //uint32_t checksum = Bits::toU32(serverToClientBuffer, 2);
-        if (!Xtea::decrypt(xteaKey, &serverToClientBuffer[6], packet_length - 4)) {
-          std::cerr << "Server -> Client Could not decrypt packet" << std::endl;
-        } else {
-          uint16_t decrypted_length = Bits::getU32(serverToClientBuffer, 6);
-          if (decrypted_length > packet_length) {
-            std::cerr << "Server -> Client Decrypted length (" << decrypted_length << ") > encrypted length (" << (packet_length - 4) << ")" << std::endl;
-          } else {
-            Packet packet(serverToClientBuffer.cbegin() + 8,
-                          serverToClientBuffer.cbegin() + 8 + decrypted_length);
-            uint8_t opcode = packet.getU8();
-            std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::gameServerOpcodes.find(opcode);
-            if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
-              std::cout << "Server -> Client [" << opcodeStringIt->second << "]" << std::endl;
-            } else {
-              std::cout << "Server -> Client <" << (uint16_t)opcode << ">" << std::endl;
-            }
-            /*
-            std::cout << "Server -> Client Packet" << std::endl
-                      << "\tType: " << (uint16_t)packet.getU8() << std::endl
-                      << "\tEncrypted Length: " << packet_length << std::endl
-                      << "\tDecrypted Length: " << decrypted_length << std::endl
-                      << "\tChecksum: " << checksum << std::endl;
-            */
-          }
-        }
-
-        // Move rest of buffer (if any)
-        uint16_t bytesLeft = serverToClientPos - (2 + packet_length);
-        if (bytesLeft > 0) {
-          std::copy(serverToClientBuffer.cbegin() + 2 + packet_length,
-                    serverToClientBuffer.cbegin() + 2 + packet_length + bytesLeft,
-                    serverToClientBuffer.begin());
-        }
-        serverToClientPos = bytesLeft;
-      }
-    } else if (packet_type == 0x04) {
-      // Client -> Server data
-      std::copy(&dllBuffer[1],
-                &dllBuffer[dll_packet_length],
-                &clientToServerBuffer[clientToServerPos]);
-      clientToServerPos += (dll_packet_length - 1);
-
-      // Check if we have a complete packet
-      while (clientToServerPos >= 2) {
-        uint16_t packet_length = Bits::getU16(clientToServerBuffer, 0);
-        if (2 + packet_length > clientToServerPos) {
-          break;  // No more complete packets
-        }
-
-        //uint32_t checksum = Bits::toU32(clientToServerBuffer, 2);
-        if (!Xtea::decrypt(xteaKey, &clientToServerBuffer[6], packet_length - 4)) {
-          std::cerr << "Client -> Server Could not decrypt packet" << std::endl;
-        } else {
-          uint16_t decrypted_length = Bits::getU16(clientToServerBuffer, 6);
-          if (decrypted_length > packet_length) {
-            std::cerr << "Client -> Server Decrypted length (" << decrypted_length << ") > encrypted length (" << (packet_length - 4) << ")" << std::endl;
-          } else {
-            Packet packet(clientToServerBuffer.cbegin() + 8,
-                          clientToServerBuffer.cbegin() + 8 + decrypted_length);
-            uint8_t opcode = packet.getU8();
-            std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::clientOpcodes.find(opcode);
-            if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
-              std::cout << "Client -> Server [" << opcodeStringIt->second << "]" << std::endl;
-            } else {
-              std::cout << "Client -> Server <" << (uint16_t)opcode << ">" << std::endl;
-            }
-            /*
-            std::cout << "Client -> Server Packet" << std::endl
-                      << "\tType: " << (uint16_t)packet.getU8() << std::endl
-                      << "\tEncrypted Length: " << packet_length << std::endl
-                      << "\tDecrypted Length: " << decrypted_length << std::endl
-                      << "\tChecksum: " << checksum << std::endl;
-            */
-          }
-        }
-
-        // Move rest of buffer (if any)
-        uint16_t bytesLeft = clientToServerPos - (2 + packet_length);
-        if (bytesLeft > 0) {
-          std::copy(clientToServerBuffer.cbegin() + 2 + packet_length,
-                    clientToServerBuffer.cbegin() + 2 + packet_length + bytesLeft,
-                    clientToServerBuffer.begin());
-        }
-        clientToServerPos = bytesLeft;
-      }
-    } else if (packet_type == 0x05) {
-      // Client -> Server connect
-      serverToClientPos = 0;
-      clientToServerPos = 0;
-    } else if (packet_type == 0x07) {
-      // XTEA Key
-      std::cout << std::hex;
-      for (int i = 0; i < 4; i++) {
-        xteaKey[i] = Bits::getU32(dllBuffer, 1 + (i * 4));
-        std::cout << "0x" << xteaKey[i] << std::endl;
-      }
-      std::cout << std::dec;
-    }
-  }
+  receiveLoop(clientSocket);
 
   return 0;
 }

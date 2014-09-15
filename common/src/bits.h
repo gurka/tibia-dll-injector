@@ -1,6 +1,7 @@
 #ifndef BITS_H_
 #define BITS_H_
 
+#include <cstdint>
 #include <array>
 
 class Bits {

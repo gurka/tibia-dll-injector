@@ -1,8 +1,6 @@
 #ifndef TIBIA_PROXY_DLL_H_
 #define TIBIA_PROXY_DLL_H_
 
-#include <cstdint>
-
 #define DLL_EXPORT __declspec(dllexport)
 
 typedef int  (WINAPI *RECV_PTR)(SOCKET s, char* buf, int len, int flags);
@@ -20,7 +18,7 @@ int WINAPI our_send(SOCKET s, char* buf, int len, int flags);
 int WINAPI our_connect(SOCKET s, const struct sockaddr* name, int namelen);
 int WINAPI our_closesocket(SOCKET s);
 
-void sendDllBuffer(int length);
+void sendDllPacket();
 void dllThreadFunc(HMODULE dllModule);
 
 extern "C" DLL_EXPORT BOOL APIENTRY DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
