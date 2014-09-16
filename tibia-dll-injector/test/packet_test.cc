@@ -58,10 +58,6 @@ void test_writePacket() {
   length += 4;
   assert(packet.length() == length);
 
-  packet.fillBytes(0x00, 7);
-  length += 7;
-  assert(packet.length() == length);
-
   packet.addU16(1337);
   length += 2;
   assert(packet.length() == length);
@@ -71,8 +67,6 @@ void test_writePacket() {
     0x03, 0x00,             // string length = 3
     0x41, 0x42, 0x43,       // string "ABC"
     0xDE, 0xAD, 0xBA, 0xBE, // 0d3199905246
-    0x00, 0x00, 0x00, 0x00, // 4 zero bytes
-    0x00, 0x00, 0x00,       // 3 zero bytes
     0x39, 0x05,             // 0d1337
   };
   const uint8_t* packet_buffer = packet.getBuffer();
@@ -88,16 +82,17 @@ void test_writeAndReadPacket() {
   packet.addU16(1334);
   packet.addU8(5);
   packet.addString("Some random words and stuff! !\"#¤%&/()=?åäöÅÄÖ");
-  packet.fillBytes(0x5F, 16);
+  packet.addU8(0);
+  packet.addU8(0);
   packet.addString("END");
 
-  assert(74 == packet.bytesLeftReadable());
+  assert(60 == packet.bytesLeftReadable());
 
   assert(5423 ==  packet.getU16());
   assert(1334 == packet.getU16());
   assert(5 == packet.getU8());
   assert("Some random words and stuff! !\"#¤%&/()=?åäöÅÄÖ" == packet.getString());
-  packet.skipBytes(16);
+  packet.skipBytes(2);
   assert("END" == packet.getString());
 
   assert(0 == packet.bytesLeftReadable());

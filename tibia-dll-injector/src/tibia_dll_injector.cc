@@ -179,7 +179,8 @@ void receiveLoop(SOCKET clientSocket) {
        }
       case DllProtocol::SERVER_CLIENT_DATA: {
           std::cout << "Server -> Client data" << std::endl;
-          std::vector<uint8_t> data = dllPacket.getAllBytes();
+          std::size_t numBytes = dllPacket.bytesLeftReadable();
+          std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
           serverToClientPB.addToBuffer(data.cbegin(), data.cend());
           break;
       }
@@ -189,7 +190,8 @@ void receiveLoop(SOCKET clientSocket) {
       }
       case DllProtocol::CLIENT_SERVER_DATA: {
           std::cout << "Client -> Server data" << std::endl;
-          std::vector<uint8_t> data = dllPacket.getAllBytes();
+          std::size_t numBytes = dllPacket.bytesLeftReadable();
+          std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
           clientToServerPB.addToBuffer(data.cbegin(), data.cend());
           break;
       }

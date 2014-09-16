@@ -24,13 +24,6 @@ void Packet::addString(const std::string& str) {
   writePos_ += str.size();
 }
 
-void Packet::fillBytes(uint8_t v, std::size_t n) {
-  std::fill(buffer_.begin() + writePos_,
-            buffer_.begin() + writePos_ + n,
-            v);
-  writePos_ += n;
-}
-
 uint8_t Packet::getU8() {
   uint8_t v = Bits::getU8(buffer_, readPos_);
   readPos_ += 1;
