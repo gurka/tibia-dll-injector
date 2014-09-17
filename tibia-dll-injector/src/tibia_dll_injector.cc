@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdint>
+#include <algorithm>
 #include <windows.h>
 #include <psapi.h>
 #include <Winsock2.h>
@@ -12,8 +13,14 @@
 #include "packet_buffer.h"
 #include "trace.h"
 
+#include "modules/module.h"
+#include "modules/market_data.h"
+#include "modules/map.h"
+
 // Path to the DLL to inject (hint: replace this string to reflect your location of the code/dll)
 static char dllName[] = "C:\\Users\\gurka\\code\\tibia-dll-injector\\tibia-proxy-dll\\bin\\release\\tibia-proxy-dll.dll";
+
+static std::vector<Module*> modules;
 
 DWORD findTibiaPid() {
   // Enumerate all processes
@@ -92,6 +99,7 @@ void WSADeinit() {
   WSACleanup();
 
   // Ugly hack
+  TRACE_INFO("Press any key to quit");
   getchar();
 }
 
@@ -127,6 +135,15 @@ void onServerToClientPacket(Packet& packet) {
   } else {
     TRACE_INFO("Server -> Client <0x%x>", opcode);
   }
+
+  for (Module* module : modules) {
+    for (auto& wantedPacket : module->wantedPackets()) {
+      if (wantedPacket.first == Module::ServerToClient &&
+          wantedPacket.second == opcode) {
+        module->packetReceived(packet, opcode);
+      }
+    }
+  }
 }
 
 void onClientToServerPacket(Packet& packet) {
@@ -136,6 +153,15 @@ void onClientToServerPacket(Packet& packet) {
     TRACE_INFO("Client -> Server [%s]", opcodeStringIt->second.c_str());
   } else {
     TRACE_INFO("Client -> Server <0x%x>", opcode);
+  }
+
+  for (Module* module : modules) {
+    for (auto& wantedPacket : module->wantedPackets()) {
+      if (wantedPacket.first == Module::ClientToServer &&
+          wantedPacket.second == opcode) {
+        module->packetReceived(packet, opcode);
+      }
+    }
   }
 }
 
@@ -259,8 +285,17 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  TRACE_INFO("Loading modules");
+  modules.push_back(new MarketData());
+  modules.push_back(new Map());
+
   TRACE_INFO("Starting recv loop");
   receiveLoop(clientSocket);
+
+  TRACE_INFO("Unloading modules");
+  for (Module* module : modules) {
+    delete module;
+  }
 
   return 0;
 }
