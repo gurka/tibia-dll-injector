@@ -1,8 +1,8 @@
-#include <iostream>
 #include "packet_buffer.h"
 #include "packet.h"
 #include "bits.h"
 #include "xtea.h"
+#include "trace.h"
 
 PacketBuffer::PacketBuffer(std::function<void(Packet&)> onCompletePacket)
   : onCompletePacket_(onCompletePacket),
@@ -21,14 +21,13 @@ void PacketBuffer::checkCompletePackets() {
 
     // Decrypt buffer
     if (!Xtea::decrypt(xteaKey_, &packetBuffer_[6], packetLength - 4)) {
-      std::cerr << "Could not decrypt packet" << std::endl;
+      TRACE_ERROR("Could not decrypt packet");
     } else {
       // Get decrypted packet length
       uint16_t decrypted_length = Bits::getU32(packetBuffer_, 6);
       if (decrypted_length > packetLength) {
-        std::cerr << "Decrypted length (" << decrypted_length << ")"
-                  << " > encrypted length (" << (packetLength - 4) << ")"
-                  << std::endl;
+        TRACE_ERROR("Decrypted length > encrypted length (%u > %u)",
+                    decrypted_length, (packetLength - 4));
       } else {
         // Create packet and call our callback
         Packet packet(packetBuffer_.cbegin() + 8,

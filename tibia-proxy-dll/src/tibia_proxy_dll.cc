@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <array>
 #include <windows.h>
+
 #include "tibia_proxy_dll.h"
 #include "packet.h"
 #include "bits.h"
@@ -153,7 +154,6 @@ void dllThreadFunc(HMODULE dllModule) {
   // Create socket
   dllSocket = ws2_32_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (dllSocket == INVALID_SOCKET) {
-    MessageBox(NULL, "Could not create socket", "TibiaProxyDLL Error", MB_ICONERROR | MB_OK);
     return;
   }
 
@@ -163,7 +163,6 @@ void dllThreadFunc(HMODULE dllModule) {
   address.sin_port = ws2_32_htons(8181);
   address.sin_addr.S_un.S_addr = ws2_32_inet_addr("127.0.0.1");
   if (ws2_32_connect(dllSocket, (sockaddr*)(&address), sizeof(address)) == SOCKET_ERROR) {
-    MessageBox(NULL, "Could not connect to server", "TibiaProxyDLL Error", MB_ICONERROR | MB_OK);
     ws2_32_closesocket(dllSocket);
     return;
   }

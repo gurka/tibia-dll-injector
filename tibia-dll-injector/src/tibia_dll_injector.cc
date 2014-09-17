@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstdint>
-#include <iostream>
 #include <windows.h>
 #include <psapi.h>
 #include <Winsock2.h>
@@ -11,6 +10,7 @@
 #include "protocol.h"
 #include "dll_protocol.h"
 #include "packet_buffer.h"
+#include "trace.h"
 
 // Path to the DLL to inject (hint: replace this string to reflect your location of the code/dll)
 static char dllName[] = "C:\\Users\\gurka\\code\\tibia-dll-injector\\tibia-proxy-dll\\bin\\release\\tibia-proxy-dll.dll";
@@ -123,9 +123,9 @@ void onServerToClientPacket(Packet& packet) {
   uint8_t opcode = packet.getU8();
   std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::gameServerOpcodes.find(opcode);
   if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
-    std::cout << "Server -> Client [" << opcodeStringIt->second << "]" << std::endl;
+    TRACE_INFO("Server -> Client [%s]", opcodeStringIt->second.c_str());
   } else {
-    std::cout << "Server -> Client <" << (uint16_t)opcode << ">" << std::endl;
+    TRACE_INFO("Server -> Client <0x%x>", opcode);
   }
 }
 
@@ -133,9 +133,9 @@ void onClientToServerPacket(Packet& packet) {
   uint8_t opcode = packet.getU8();
   std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::clientOpcodes.find(opcode);
   if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
-    std::cout << "Client -> Server [" << opcodeStringIt->second << "]" << std::endl;
+    TRACE_INFO("Client -> Server [%s]", opcodeStringIt->second.c_str());
   } else {
-    std::cout << "Client -> Server <" << (uint16_t)opcode << ">" << std::endl;
+    TRACE_INFO("Client -> Server <0x%x>", opcode);
   }
 }
 
@@ -146,6 +146,7 @@ bool receiveDllPacket(SOCKET clientSocket, Packet& dllPacket) {
     return false;
   }
   uint16_t dll_packet_length = Bits::getU16(dllPacketLength, 0);
+  TRACE_DEBUG("Received dllPacket length: %u", dll_packet_length);
 
   // Get DLL packet
   if (!recvAll(clientSocket, (char*)dllPacket.getBuffer(), dll_packet_length)) {
@@ -163,54 +164,52 @@ void receiveLoop(SOCKET clientSocket) {
 
   while (true) {
     if (!receiveDllPacket(clientSocket, dllPacket)) {
-      std::cerr << "Connection to DLL closed" << std::endl;
+      TRACE_ERROR("Connection to DLL closed");
       break;
     }
 
     uint8_t packet_type = dllPacket.getU8();
     switch (packet_type) {
       case DllProtocol::SERVER_CLIENT_CLOSED: {
-        std::cout << "Server -> Client closed" << std::endl;
+        TRACE_INFO("Server -> Client closed");
         break;
       }
       case DllProtocol::SERVER_CLIENT_ERROR: {
-        std::cout << "Server -> Client error" << std::endl;
+        TRACE_INFO("Server -> Client error");
         break;
        }
       case DllProtocol::SERVER_CLIENT_DATA: {
-          std::cout << "Server -> Client data" << std::endl;
-          std::size_t numBytes = dllPacket.bytesLeftReadable();
-          std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
-          serverToClientPB.addToBuffer(data.cbegin(), data.cend());
-          break;
+        std::size_t numBytes = dllPacket.bytesLeftReadable();
+        TRACE_DEBUG("Server -> Client data (%u bytes)", numBytes);
+        std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
+        serverToClientPB.addToBuffer(data.cbegin(), data.cend());
+        break;
       }
       case DllProtocol::CLIENT_SERVER_ERROR: {
-        std::cout << "Client -> Server error" << std::endl;
+        TRACE_INFO("Client -> Server error");
         break;
       }
       case DllProtocol::CLIENT_SERVER_DATA: {
-          std::cout << "Client -> Server data" << std::endl;
-          std::size_t numBytes = dllPacket.bytesLeftReadable();
-          std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
-          clientToServerPB.addToBuffer(data.cbegin(), data.cend());
-          break;
+        std::size_t numBytes = dllPacket.bytesLeftReadable();
+        TRACE_DEBUG("Client -> Server data (%u bytes)", numBytes);
+        std::vector<uint8_t> data = dllPacket.getBytes(numBytes);
+        clientToServerPB.addToBuffer(data.cbegin(), data.cend());
+        break;
       }
       case DllProtocol::CLIENT_SERVER_CONNECT: {
-        std::cout << "Client -> Server connect"
-                  << "(" << (dllPacket.getU8() == 0x00 ? "NOK" : "OK") << ")"
-                  << std::endl;
+        TRACE_INFO("Client -> Server connect (%s)",
+                   (dllPacket.getU8() == 0x00 ? "NOK" : "OK"));
         serverToClientPB.resetPosition();
         clientToServerPB.resetPosition();
         break;
       }
       case DllProtocol::CLIENT_SERVER_CLOSE_SOCKET: {
-        std::cout << "Client -> Server close socket"
-                  << "(" << (dllPacket.getU8() == 0x00 ? "NOK" : "OK") << ")"
-                  << std::endl;
+        TRACE_INFO("Client -> Server close socket (%s)",
+                   (dllPacket.getU8() == 0x00 ? "NOK" : "OK"));
         break;
       }
       case DllProtocol::XTEA_KEY: {
-        std::cout << "XTEA Key" << std::endl;
+        TRACE_INFO("XTEA Key");
         std::array<uint32_t, 4> xteaKey;
         for (int i = 0; i < 4; i++) {
           xteaKey[i] = dllPacket.getU32();
@@ -220,7 +219,7 @@ void receiveLoop(SOCKET clientSocket) {
         break;
       }
       default: {
-        std::cerr << "Unknown DLL packet type: " << (uint16_t)packet_type << std::endl;
+        TRACE_ERROR("Unknown DLL packet type: 0x%x", packet_type);
         break;
       }
     }
@@ -228,39 +227,39 @@ void receiveLoop(SOCKET clientSocket) {
 }
 
 int main(int argc, char* argv[]) {
-  std::cout << "Initalizing WSA" << std::endl;
+  TRACE_INFO("Initalizing WSA");
   if (!WSAInit()) {
-    std::cerr << "Could not initialize WSA" << std::endl;
+    TRACE_ERROR("Could not initialize WSA");
     return 1;
   }
 
-  std::cout << "Starting server" << std::endl;
-  Server server = Server("8181");
+  TRACE_INFO("Starting server");
+  Server server = Server(8181);
   if (!server.setup()) {
-    std::cerr << "Could not setup server" << std::endl;
+    TRACE_ERROR("Could not start server");
   }
 
-  std::cout << "Finding Tibia pid" << std::endl;
+  TRACE_INFO("Finding Tibia pid");
   DWORD tibiaPid = findTibiaPid();
   if (tibiaPid == 0) {
-    std::cerr << "Could not find Tibia process" << std::endl;
+    TRACE_ERROR("Could not find Tibia process");
     return 1;
   }
 
-  std::cout << "Injecting DLL" << std::endl;
+  TRACE_INFO("Injecting DLL");
   if (!injectDLL(tibiaPid)) {
-    std::cerr << "Could not inject DLL" << std::endl;
+    TRACE_ERROR("Could not inject DLL");
     return 1;
   }
 
-  std::cout << "Waiting for DLL to connect" << std::endl;
+  TRACE_INFO("Waiting for DLL to connect");
   SOCKET clientSocket = server.accept();
   if (clientSocket == INVALID_SOCKET) {
-    std::cerr << "Could not accept client connection" << std::endl;
+    TRACE_ERROR("Could not accept client connection");
     return 1;
   }
 
-  std::cout << "Starting recv loop" << std::endl;
+  TRACE_INFO("Starting recv loop");
   receiveLoop(clientSocket);
 
   return 0;

@@ -2,7 +2,9 @@
 #include <Ws2tcpip.h>
 #include "server.h"
 
-Server::Server(const std::string& port) : socket_(INVALID_SOCKET) {
+Server::Server(uint16_t port)
+  : port_(port),
+    socket_(INVALID_SOCKET) {
 }
 
 Server::~Server() {
@@ -20,7 +22,7 @@ bool Server::setup() {
   sockaddr_in service;
   service.sin_family = AF_INET;
   service.sin_addr.s_addr = inet_addr("127.0.0.1");
-  service.sin_port = htons(8181);
+  service.sin_port = htons(port_);
   if (bind(socket_, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
     closesocket(socket_);
     socket_ = INVALID_SOCKET;

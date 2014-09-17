@@ -1,5 +1,5 @@
 #include <cassert>
-#include <iostream>
+#include <string>
 #include "../src/packet.h"
 
 void test_readPacket() {
