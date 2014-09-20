@@ -1,12 +1,14 @@
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 #include "packet_dump.h"
 #include "packet.h"
 #include "trace.h"
 
 void PacketDump::packetReceived(const Packet& packet, Direction direction) {
   Packet thePacket = packet;
-  std::cout << std::hex << std::setfill('0');
+  std::stringstream out;
+  out << std::hex << std::setfill('0');
 
   while (thePacket.bytesLeftReadable() > 0) {
 
@@ -21,19 +23,30 @@ void PacketDump::packetReceived(const Packet& packet, Direction direction) {
 
     for (int i = 0; i < 16; i++) {
       if (i < nread) {
-        std::cout << ' ' << std::setw(2) << (uint16_t) buf[i];
+        out << std::setw(2) << (uint16_t) buf[i];
       } else {
-        std::cout << "   ";
+        out << "  ";
+      }
+      if (i % 2 != 0) {
+        out << ' ';
       }
     }
 
-    std::cout << "  ";
-    for (int i = 0; i < nread; i++) {
-      if (buf[i] < 32) {
-        std::cout << '.';
+    out << "  '";
+    for (int i = 0; i < 16; i++) {
+      if (i < nread) {
+        if (buf[i] < 32) {
+          out << '.';
+        } else {
+          out << (uint8_t) buf[i];
+        }
       } else {
-        std::cout << (uint8_t) buf[i];
+        out << ' ';
       }
     }
+    out << '\'';
+
+    std::cout << out.str() << std::endl;
+    out.str("");
   }
 }

@@ -15,7 +15,7 @@
 // Used to turn trace groups on or off, comment out to turn off
 #define TRACE_ERROR_ON
 #define TRACE_INFO_ON
-#define TRACE_DEBUG_ON
+//#define TRACE_DEBUG_ON
 
 // Trace groups
 #ifdef TRACE_ERROR_ON

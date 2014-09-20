@@ -65,6 +65,8 @@
 		<Unit filename="../tibia-dll-injector/src/modules/market_data.cc" />
 		<Unit filename="../tibia-dll-injector/src/modules/market_data.h" />
 		<Unit filename="../tibia-dll-injector/src/modules/module.h" />
+		<Unit filename="../tibia-dll-injector/src/modules/packet_dump.cc" />
+		<Unit filename="../tibia-dll-injector/src/modules/packet_dump.h" />
 		<Unit filename="../tibia-dll-injector/src/packet_buffer.cc" />
 		<Unit filename="../tibia-dll-injector/src/packet_buffer.h" />
 		<Unit filename="../tibia-dll-injector/src/protocol.h" />

@@ -277,17 +277,16 @@ int main(int argc, char* argv[]) {
   }
 
   TRACE_INFO("Loading modules");
-  modules.push_back(new MarketData());
-  modules.push_back(new Map());
-  modules.push_back(new PacketDump());
+  MarketData marketData;
+  Map map;
+  PacketDump packetDump;
+
+  modules.push_back(&marketData);
+  modules.push_back(&map);
+  modules.push_back(&packetDump);
 
   TRACE_INFO("Starting recv loop");
   receiveLoop(clientSocket);
-
-  TRACE_INFO("Unloading modules");
-  for (Module* module : modules) {
-    delete module;
-  }
 
   return 0;
 }
