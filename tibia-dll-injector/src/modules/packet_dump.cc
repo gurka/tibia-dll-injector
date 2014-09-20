@@ -5,7 +5,7 @@
 #include "packet.h"
 #include "trace.h"
 
-void PacketDump::packetReceived(const Packet& packet, Direction direction) {
+void PacketDump::packetReceived(const Packet& packet, PacketDirection direction) {
   Packet thePacket = packet;
   std::stringstream out;
   out << std::hex << std::setfill('0');

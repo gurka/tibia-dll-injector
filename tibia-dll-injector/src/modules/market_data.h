@@ -5,7 +5,7 @@
 
 class MarketData : public Module {
  public:
-  void packetReceived(const Packet& packet, Direction direction);
+  void packetReceived(const Packet& packet, PacketDirection direction);
 
  private:
   void parseMarketDetail(Packet& packet);

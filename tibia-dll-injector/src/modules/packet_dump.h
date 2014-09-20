@@ -5,7 +5,7 @@
 
 class PacketDump : public Module {
  public:
-  void packetReceived(const Packet& packet, Direction direction);
+  void packetReceived(const Packet& packet, PacketDirection direction);
 };
 
 #endif  // PACKET_DUMP_H

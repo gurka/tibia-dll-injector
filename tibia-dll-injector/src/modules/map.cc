@@ -3,7 +3,7 @@
 #include "packet.h"
 #include "trace.h"
 
-void Map::packetReceived(const Packet& packet, Direction direction) {
+void Map::packetReceived(const Packet& packet, PacketDirection direction) {
   Packet mapPacket = packet;
   uint8_t opcode = mapPacket.getU8();
   switch (opcode) {

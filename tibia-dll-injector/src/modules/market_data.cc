@@ -4,7 +4,7 @@
 #include "packet.h"
 #include "trace.h"
 
-void MarketData::packetReceived(const Packet& packet, Direction direction) {
+void MarketData::packetReceived(const Packet& packet, PacketDirection direction) {
   Packet thePacket = packet;
   uint8_t opcode = thePacket.getU8();
   switch (opcode) {

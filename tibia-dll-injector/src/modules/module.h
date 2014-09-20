@@ -4,18 +4,18 @@
 #include <cstdint>
 #include <vector>
 
-class Packet;
+#include "packet.h"
 
 class Module {
  public:
-  enum Direction {
+  virtual ~Module() {}
+
+  enum PacketDirection {
     ServerToClient,
     ClientToServer,
   };
 
-  virtual ~Module() {}
-
-  virtual void packetReceived(const Packet& packet, Direction direction) = 0;
+  virtual void packetReceived(const Packet& packet, PacketDirection direction) = 0;
 };
 
 #endif  // MODULE_H_
