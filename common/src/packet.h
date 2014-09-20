@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "bits.h"
+
 class Packet {
  public:
   // Constructors
@@ -38,6 +40,9 @@ class Packet {
   }
 
   // Read operations
+  uint8_t peekU8() const { return Bits::getU8(buffer_, readPos_); }
+  uint16_t peekU16() const { return Bits::getU16(buffer_, readPos_); }
+  uint32_t peekU32() const { return Bits::getU32(buffer_, readPos_); }
   uint8_t getU8();
   uint16_t getU16();
   uint32_t getU32();

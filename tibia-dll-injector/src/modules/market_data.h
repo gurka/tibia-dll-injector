@@ -3,13 +3,13 @@
 
 #include "module.h"
 
-class Packet;
-
 class MarketData : public Module {
  public:
-  MarketData();
+  void packetReceived(const Packet& packet, Direction direction);
 
-  void packetReceived(const Packet& packet, uint8_t opcode);
+ private:
+  void parseMarketDetail(Packet& packet);
+  void parseMarketBrowse(Packet& packet);
 };
 
 #endif  // MARKET_DATA_H_

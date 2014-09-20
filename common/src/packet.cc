@@ -1,5 +1,4 @@
 #include "packet.h"
-#include "bits.h"
 
 void Packet::addU8(uint8_t v) {
   Bits::addU8(buffer_, writePos_, v);
@@ -25,19 +24,19 @@ void Packet::addString(const std::string& str) {
 }
 
 uint8_t Packet::getU8() {
-  uint8_t v = Bits::getU8(buffer_, readPos_);
+  uint8_t v = peekU8();
   readPos_ += 1;
   return v;
 }
 
 uint16_t Packet::getU16() {
-  uint16_t v = Bits::getU16(buffer_, readPos_);
+  uint16_t v = peekU16();
   readPos_ += 2;
   return v;
 }
 
 uint32_t Packet::getU32() {
-  uint32_t v = Bits::getU32(buffer_, readPos_);
+  uint32_t v = peekU32();
   readPos_ += 4;
   return v;
 }

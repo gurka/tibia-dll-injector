@@ -16,6 +16,7 @@
 #include "modules/module.h"
 #include "modules/market_data.h"
 #include "modules/map.h"
+#include "modules/packet_dump.h"
 
 // Path to the DLL to inject (hint: replace this string to reflect your location of the code/dll)
 static char dllName[] = "C:\\Users\\gurka\\code\\tibia-dll-injector\\tibia-proxy-dll\\bin\\release\\tibia-proxy-dll.dll";
@@ -128,7 +129,7 @@ bool recvAll(SOCKET s, char* buf, int len) {
 }
 
 void onServerToClientPacket(Packet& packet) {
-  uint8_t opcode = packet.getU8();
+  uint8_t opcode = packet.peekU8();
   std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::gameServerOpcodes.find(opcode);
   if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
     TRACE_INFO("Server -> Client [%s]", opcodeStringIt->second.c_str());
@@ -137,17 +138,12 @@ void onServerToClientPacket(Packet& packet) {
   }
 
   for (Module* module : modules) {
-    for (auto& wantedPacket : module->wantedPackets()) {
-      if (wantedPacket.first == Module::ServerToClient &&
-          wantedPacket.second == opcode) {
-        module->packetReceived(packet, opcode);
-      }
-    }
+    module->packetReceived(packet, Module::ServerToClient);
   }
 }
 
 void onClientToServerPacket(Packet& packet) {
-  uint8_t opcode = packet.getU8();
+  uint8_t opcode = packet.peekU8();
   std::map<uint8_t, std::string>::iterator opcodeStringIt = Protocol::clientOpcodes.find(opcode);
   if (opcodeStringIt != Protocol::gameServerOpcodes.end()) {
     TRACE_INFO("Client -> Server [%s]", opcodeStringIt->second.c_str());
@@ -156,12 +152,7 @@ void onClientToServerPacket(Packet& packet) {
   }
 
   for (Module* module : modules) {
-    for (auto& wantedPacket : module->wantedPackets()) {
-      if (wantedPacket.first == Module::ClientToServer &&
-          wantedPacket.second == opcode) {
-        module->packetReceived(packet, opcode);
-      }
-    }
+    module->packetReceived(packet, Module::ClientToServer);
   }
 }
 
@@ -288,6 +279,7 @@ int main(int argc, char* argv[]) {
   TRACE_INFO("Loading modules");
   modules.push_back(new MarketData());
   modules.push_back(new Map());
+  modules.push_back(new PacketDump());
 
   TRACE_INFO("Starting recv loop");
   receiveLoop(clientSocket);

@@ -3,21 +3,9 @@
 #include "packet.h"
 #include "trace.h"
 
-Map::Map() {
-  // GameServerFullMap
-  wantedPackets_.push_back(std::make_pair(Module::ServerToClient, 100));
-  // GameServerMapTopRow
-  wantedPackets_.push_back(std::make_pair(Module::ServerToClient, 101));
-  // GameServerMapRightRow
-  wantedPackets_.push_back(std::make_pair(Module::ServerToClient, 102));
-  // GameServerMapBottomRow
-  wantedPackets_.push_back(std::make_pair(Module::ServerToClient, 103));
-  //GameServerMapLeftRow
-  wantedPackets_.push_back(std::make_pair(Module::ServerToClient, 104));
-}
-
-void Map::packetReceived(const Packet& packet, uint8_t opcode) {
+void Map::packetReceived(const Packet& packet, Direction direction) {
   Packet mapPacket = packet;
+  uint8_t opcode = mapPacket.getU8();
   switch (opcode) {
     case 100: {
       TRACE_INFO("RECEIVED FULL MAP PACKET WITH LENGTH %u!",
@@ -44,7 +32,7 @@ void Map::packetReceived(const Packet& packet, uint8_t opcode) {
                  mapPacket.bytesLeftReadable());
       break;
     default:
-      TRACE_ERROR("RECEIVED INVALID MAP PACKET");
+      break;
     }
   }
 }

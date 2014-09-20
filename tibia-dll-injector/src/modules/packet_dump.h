@@ -1,11 +1,11 @@
-#ifndef MAP_H_
-#define MAP_H_
+#ifndef PACKET_DUMP_H
+#define PACKET_DUMP_H
 
 #include "module.h"
 
-class Map : public Module {
+class PacketDump : public Module {
  public:
   void packetReceived(const Packet& packet, Direction direction);
 };
 
-#endif  // MAP_H_
+#endif  // PACKET_DUMP_H

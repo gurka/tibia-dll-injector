@@ -8,21 +8,14 @@ class Packet;
 
 class Module {
  public:
-  virtual ~Module() {}
-
   enum Direction {
     ServerToClient,
     ClientToServer,
   };
 
-  const std::vector<std::pair<Direction, uint8_t>>& wantedPackets() {
-    return wantedPackets_;
-  }
+  virtual ~Module() {}
 
-  virtual void packetReceived(const Packet& packet, uint8_t opcode) = 0;
-
- protected:
-  std::vector<std::pair<Direction, uint8_t>> wantedPackets_;
+  virtual void packetReceived(const Packet& packet, Direction direction) = 0;
 };
 
 #endif  // MODULE_H_
