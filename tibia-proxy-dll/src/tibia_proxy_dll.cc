@@ -27,7 +27,7 @@ static DWORD_PTR our_send_ptr        = (DWORD_PTR) &our_send;
 static DWORD_PTR our_connect_ptr     = (DWORD_PTR) &our_connect;
 static DWORD_PTR our_closesocket_ptr = (DWORD_PTR) &our_closesocket;
 
-// The memory addresses which we want to replace (Tibia 10.54)
+// The memory addresses which we want to replace (Tibia 10.56)
 static DWORD_PTR tibiaSendFuncPtr        = 0x34C9AC;
 static DWORD_PTR tibiaRecvFuncPtr        = 0x34C994;
 static DWORD_PTR tibiaConnectFuncPtr     = 0x34C984;
