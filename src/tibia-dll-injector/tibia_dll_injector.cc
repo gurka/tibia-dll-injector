@@ -54,6 +54,13 @@ DWORD findTibiaPid() {
 }
 
 bool injectDLL(DWORD pid) {
+  // Get full path of our dll
+  char fullDllName[1024];
+  if (GetFullPathName(dllName, sizeof(fullDllName), fullDllName, nullptr) == 0)
+  {
+    return false;
+  }
+
   // Open process using pid
   HANDLE handle = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
   if (handle == NULL) {
@@ -67,13 +74,13 @@ bool injectDLL(DWORD pid) {
   }
 
   // Allocate memory inside the opened process
-  LPVOID dereercomp = VirtualAllocEx(handle, NULL, strlen(dllName), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  LPVOID dereercomp = VirtualAllocEx(handle, NULL, strlen(fullDllName), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
   if (dereercomp == NULL) {
     return false;
   }
 
   // Write the DLL name to the allocated memory
-  if (!WriteProcessMemory(handle, dereercomp, dllName, strlen(dllName), NULL)) {
+  if (!WriteProcessMemory(handle, dereercomp, fullDllName, strlen(fullDllName), NULL)) {
     return false;
   }
 
@@ -87,7 +94,7 @@ bool injectDLL(DWORD pid) {
   WaitForSingleObject(remoteThread, INFINITE);
 
   // Free the allocated memory
-  VirtualFreeEx(handle, dereercomp, strlen(dllName), MEM_RELEASE);
+  VirtualFreeEx(handle, dereercomp, strlen(fullDllName), MEM_RELEASE);
 
   // Close the handles
   CloseHandle(remoteThread);
