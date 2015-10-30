@@ -7,11 +7,7 @@
 #include <cstring>
 
 // Used to remove directories in __FILE__ ("network/server.cc" => "server.cc")
-#ifdef _WIN32
-#define FILE (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
-#else
-#define FILE (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#endif
+#define TRACE_FILE (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 // Used to turn trace groups on or off, comment out to turn off
 #define TRACE_ERROR_ON
@@ -20,19 +16,19 @@
 
 // Trace groups
 #ifdef TRACE_ERROR_ON
-  #define TRACE_ERROR(...) Trace::trace(FILE, __LINE__, "ERROR", __VA_ARGS__)
+  #define TRACE_ERROR(...) Trace::trace(TRACE_FILE, __LINE__, "ERROR", __VA_ARGS__)
 #else
   #define TRACE_ERROR(...)
 #endif
 
 #ifdef TRACE_INFO_ON
-  #define TRACE_INFO(...) Trace::trace(FILE, __LINE__, "INFO", __VA_ARGS__)
+  #define TRACE_INFO(...) Trace::trace(TRACE_FILE, __LINE__, "INFO", __VA_ARGS__)
 #else
   #define TRACE_INFO(...)
 #endif
 
 #ifdef TRACE_DEBUG_ON
-  #define TRACE_DEBUG(...) Trace::trace(FILE, __LINE__, "DEBUG", __VA_ARGS__)
+  #define TRACE_DEBUG(...) Trace::trace(TRACE_FILE, __LINE__, "DEBUG", __VA_ARGS__)
 #else
   #define TRACE_DEBUG(...)
 #endif
