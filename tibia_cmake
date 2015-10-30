@@ -1,0 +1,20 @@
+#!/bin/bash
+case $1 in
+  'all')
+    mkdir -p build_release && cd build_release && cmake -G "MSYS Makefiles" .. -DCMAKE_BUILD_TYPE=release
+    cd ..
+    mkdir -p build_debug && cd build_debug && cmake -G "MSYS Makefiles" .. -DCMAKE_BUILD_TYPE=debug
+    ;;
+
+  'release')
+    mkdir -p build_release && cd build_release && cmake -G "MSYS Makefiles" .. -DCMAKE_BUILD_TYPE=release
+    ;;
+
+  'debug')
+    mkdir -p build_debug && cd build_debug && cmake -G "MSYS Makefiles" .. -DCMAKE_BUILD_TYPE=debug
+    ;;
+
+  *)
+    echo "Usage: $0 [ all | release | debug ]"
+    ;;
+esac
