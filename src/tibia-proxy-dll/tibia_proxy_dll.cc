@@ -27,12 +27,12 @@ static DWORD_PTR our_send_ptr        = (DWORD_PTR) &our_send;
 static DWORD_PTR our_connect_ptr     = (DWORD_PTR) &our_connect;
 static DWORD_PTR our_closesocket_ptr = (DWORD_PTR) &our_closesocket;
 
-// The memory addresses which we want to replace (Tibia 10.56)
-static DWORD_PTR tibiaSendFuncPtr        = 0x34C9AC;
-static DWORD_PTR tibiaRecvFuncPtr        = 0x34C994;
-static DWORD_PTR tibiaConnectFuncPtr     = 0x34C984;
-static DWORD_PTR tibiaCloseSocketFuncPtr = 0x34C980;
-static DWORD_PTR tibiaXteaKeyAddress     = 0x41B8D4;
+// The memory addresses which we want to replace (Tibia 10.82)
+static DWORD_PTR tibiaSendFuncPtr        = 0x421A58;
+static DWORD_PTR tibiaRecvFuncPtr        = 0x421A9C;
+static DWORD_PTR tibiaConnectFuncPtr     = 0x421A60;
+static DWORD_PTR tibiaCloseSocketFuncPtr = 0x421A48;
+static DWORD_PTR tibiaXteaKeyAddress     = 0x51DBA4;
 
 // This is set to true after a call to myConnect has been made
 // It is used to send the XTEA key on the next call to mySend
